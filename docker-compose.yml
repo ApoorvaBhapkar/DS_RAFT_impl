@@ -1,0 +1,41 @@
+version: "3.9"
+services:
+    node1:
+      container_name: Node1
+      build: Node/.
+      environment:
+        - NODES=Node2;Node3;Node4;Node5
+        - NODE_NAME=Node1
+        - TIMEOUT_VALUE=2400
+    node2:
+      container_name: Node2
+      build: Node/.
+      environment:
+        - NODES=Node1;Node3;Node4;Node5
+        - NODE_NAME=Node2
+        - TIMEOUT_VALUE=2700
+    node3:
+      container_name: Node3
+      build: Node/.
+      environment:
+        - NODES=Node1;Node2;Node4;Node5
+        - NODE_NAME=Node3
+        - TIMEOUT_VALUE=3500
+    node4:
+      container_name: Node4
+      build: Node/.
+      environment:
+        - NODES=Node1;Node3;Node2;Node5
+        - NODE_NAME=Node4
+        - TIMEOUT_VALUE=4000
+    node5:
+      container_name: Node5
+      build: Node/.
+      environment:
+        - NODES=Node1;Node2;Node3;Node4
+        - NODE_NAME=Node5
+        - TIMEOUT_VALUE=4500
+    controller:
+      container_name: Controller
+      build: Controller/.
+      stdin_open: true
