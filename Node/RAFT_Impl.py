@@ -12,6 +12,7 @@ send_this_message_list = []
 vote_request_list = []
 vote_recieve_list = []
 node_name=os.environ['NODE_NAME']
+#node_name=5555
 VOTE = {"sender_name": node_name, "request":"VOTE_ACK", "key":"", "value":"", "term": 1}
 vote_request={"term": 1, "sender_name": node_name, "request":"VOTE_REQUEST", "key":"", "value":"", "lastLogIndex": 0, "lastLogTerm": 0}
 global_state={"currentTerm": 1, "votedFor": None, "log": [], "timeout_interval": None, "heartbeat_interval": 1000}
@@ -26,11 +27,12 @@ custom_target = None
 stop_timer=False
 
 def timer_func(interval):
-    '''
+    ''' 
     '''
     #print("inside timer_func!!")
     start_time=time.time()
-    inter=int(int(interval)/10)
+    inter_sec=int(global_state[interval])
+    inter=int(inter_sec/10)
     for i in range (inter):
         if(stop_timer):
             break
@@ -76,7 +78,7 @@ def rpc_sender(skt):
     global custom_target
     while True:
         if common_message_store:            
-            msg_bytes = json.dumps(common_message_store.pop()).encode('utf-8')
+            msg_bytes = json.dumps(common_message_store.pop(0)).encode('utf-8')
             # Currently hardcoded
             if custom_target is None:
                 for target in other_nodes:
@@ -86,7 +88,7 @@ def rpc_sender(skt):
                     except Exception as e:
                         continue
             else:
-#                print("Send msg", msg_bytes)                
+                #print("Send msg", msg_bytes)                
                 #skt.sendto(msg_bytes, ('localhost', custom_target))
                 skt.sendto(msg_bytes, (custom_target, 5555))
                 custom_target = None
@@ -143,11 +145,13 @@ def candidate_state():
             state = 'leader'
             send_this_message_list.append(heartbeat_rpc)
             stop_timer = True
+            break
             #return True
         elif incoming_heartbeat_list:
-            incoming_heartbeat_list.pop()
+            incoming_heartbeat_list.pop(0)
             stop_timer = True
             state = 'follower'
+            break
             #return True
     #return False
    
@@ -161,10 +165,12 @@ def follower_state():
     timer.start()
     while timer.is_alive():
         if incoming_heartbeat_list:
-            incoming_heartbeat_list.pop()
+            incoming_heartbeat_list.pop(0)
             stop_timer = True
+            break
     if not incoming_heartbeat_list and not stop_timer:
         state='candidate'
+        modify_term()
             #return True
     #return False
 
@@ -185,23 +191,35 @@ def message_processor():
     Thread 4 - Messaging
     TODO - Only vote if follower/candidate
     '''
-    global current_state
+    global state
     global stop_threads    
     while True:
         if common_message_store:
-            popped_message = common_message_store.pop()
-#            print(popped_message)
+            popped_message = common_message_store.pop(0)
+            #print(popped_message)
             if popped_message['request'] == 'APPEND_RPC':
                 incoming_heartbeat_list.append(popped_message)
                 #current_state = 'follower'
             elif popped_message['request'] == 'VOTE_REQUEST':
-                vote_request_list.put(popped_message)
+                vote_request_list.append(popped_message)
                 hold_election()
             else:
                 vote_recieve_list.append(popped_message)
 
         if stop_threads:
             print("Stopping Sender")
+            break
+
+def processor_thread():
+    '''
+    Thread 3 - Processor Thread
+    '''
+    print("Starting processor")
+    global stop_threads
+    while True:
+        main_process()
+        if stop_threads:
+            print("Stopping processor")
             break
 
 def modify_name():
@@ -213,6 +231,7 @@ def modify_name():
     VOTE['sender_name'] = node_name
 
     global_state['timeout_interval'] = int(os.environ['TIMEOUT_VALUE'])
+    #global_state['timeout_interval'] = 2400
 
     # with open('message.json', 'w') as outfile:
     #     json.dump(message_template, outfile)
@@ -236,13 +255,13 @@ def hold_election():
     while vote_request_list:
         '''
         '''
-        popped_message = vote_request_list.pop()
+        popped_message = vote_request_list.pop(0)
         print("Voted for", global_state['votedFor'])
         if popped_message['term'] > current_term and global_state['votedFor'] is None:
             #TODO - Adding the logs criteria
             # Something messy
-            global_state['votedFor'] = popped_message['candidateId']            
-            custom_target = popped_message['candidateId']
+            global_state['votedFor'] = popped_message['sender_name']            
+            custom_target = popped_message['sender_name']
             send_this_message_list.append(VOTE)
             modify_term()
 
@@ -272,7 +291,9 @@ def modify_term():
 if __name__=="__main__":
     '''
     '''
-    source = 'localhost'
+    source = node_name
+    modify_name()
+    #source = 'localhost'
     UDP_Skt = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
     UDP_Skt.bind((source, 5555))
 
