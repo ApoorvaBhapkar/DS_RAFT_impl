@@ -18,6 +18,8 @@ vote_request={"term": 1, "sender_name": node_name, "request":"VOTE_REQUEST", "ke
 global_state={"currentTerm": 1, "votedFor": None, "log": [], "timeout_interval": None, "heartbeat_interval": 1000}
 heartbeat_rpc={"sender_name": node_name, "request": "APPEND_RPC", "key": "", "value": "", "entries": [], "term": 1, "prevLogIndex": 0, "prevLogTerm": 0}
 state='follower'
+current_leader=None
+timeout_req=False
 current_term = global_state['currentTerm']
 # other_nodes = [5556, 5557]
 other_nodes = os.environ["NODES"].split(";")
@@ -31,6 +33,7 @@ def timer_func(interval):
     '''
     #print("inside timer_func!!")
     #start_time=time.time()
+    global stop_timer
     inter_sec=int(global_state[interval])
     inter=int(inter_sec/10)
     for i in range (inter):
@@ -50,7 +53,7 @@ def listener(skt):
     Recevied the request and add it to the queue,
     so that the messages are not lost
     '''
-
+    global stop_threads
     print(f"Starting Listener ")
     while True:
         try:
@@ -62,7 +65,7 @@ def listener(skt):
         decoded_msg = json.loads(msg.decode('utf-8'))
         print(f"Message Received : {decoded_msg} From : {addr}")
         common_message_store.append(decoded_msg)
-        
+
         if 'counter' in decoded_msg.keys():
             if decoded_msg['counter'] >= 4:
                 print("Exiting Listener Function")
@@ -102,6 +105,7 @@ def leader_state():
     '''
     '''
     global stop_timer
+    global state
     stop_timer = False
     timer = threading.Thread(target=timer_func, args=['heartbeat_interval'])
     timer.start()
@@ -120,6 +124,7 @@ def main_process():
         if state=='follower':
             follower_state()
         elif state=='candidate':
+            modify_term()
             candidate_state()
         elif state=='leader':
             leader_state()
@@ -131,6 +136,7 @@ def candidate_state():
     '''
     '''    
     global stop_timer
+    global current_term
     global state            
     vote_recieve_list.clear()
     vote_recieve_list.append(VOTE)
@@ -149,10 +155,13 @@ def candidate_state():
             break
             #return True
         elif incoming_heartbeat_list:
-            incoming_heartbeat_list.pop(0)
-            stop_timer = True
-            state = 'follower'
-            break
+            leader_term=incoming_heartbeat_list.pop(0)
+            if (leader_term['term']>=current_term):
+                stop_timer = True
+                state = 'follower'
+                break
+            #else:
+                #hold_election()
             #return True
     #return False
    
@@ -161,17 +170,21 @@ def follower_state():
     '''
     global stop_timer
     global state
+    global current_leader
+    global current_term
+    global timeout_req
     stop_timer = False
     timer = threading.Thread(target=timer_func, args=['timeout_interval'])
     timer.start()
     while timer.is_alive():
         if incoming_heartbeat_list:
-            incoming_heartbeat_list.pop(0)
-            stop_timer = True
-            break
+            heartbeat=incoming_heartbeat_list.pop(0)
+            current_leader=heartbeat['sender_name']
+            if(heartbeat['term']>=current_term):
+                stop_timer = True
+                break
     if not incoming_heartbeat_list and not stop_timer:
         state='candidate'
-        modify_term()
             #return True
     #return False
 
@@ -182,7 +195,7 @@ def state_monitor():
     global state
     while True:
         print(state)
-        time.sleep(1)
+        time.sleep(0.001)
         if stop_threads:
             print("Stopping Sender")
             break        
@@ -253,14 +266,12 @@ def hold_election():
     '''
     '''
     global custom_target
+    global current_term
     while vote_request_list:
-        '''
-        '''
+
         popped_message = vote_request_list.pop(0)
         print("Voted for", global_state['votedFor'])
-        if popped_message['term'] > current_term and global_state['votedFor'] is None:
-            #TODO - Adding the logs criteria
-            # Something messy
+        if ((popped_message['term'] > current_term) and global_state['votedFor'] is None):
             global_state['votedFor'] = popped_message['sender_name']            
             custom_target = popped_message['sender_name']
             send_this_message_list.append(VOTE)
