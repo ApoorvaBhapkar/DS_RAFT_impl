@@ -7,7 +7,7 @@ import time
 time.sleep(5)
 
 # Read Message Template
-msg = json.load(open("Message.json"))
+#msg = json.load(open("Message.json"))
 
 # Initialize
 sender = "Controller"
@@ -15,8 +15,9 @@ target = "Node1"
 port = 5555
 
 # Request
-msg['sender_name'] = sender
-msg['request'] = "CONVERT_FOLLOWER"
+# msg['sender_name'] = sender
+# msg['request'] = "CONVERT_FOLLOWER"
+msg =  {"leaderId": "node2", "counter":4}
 print(f"Request Created : {msg}")
 
 # Socket Creation and Binding

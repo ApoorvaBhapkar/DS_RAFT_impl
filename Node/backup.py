@@ -12,14 +12,14 @@ send_this_message_list = []
 vote_request_list = []
 vote_recieve_list = []
 node_name=os.environ['NODE_NAME']
-# node_name=5555
+#node_name=5555
 VOTE = {"sender_name": node_name, "request":"VOTE_ACK", "key":"", "value":"", "term": 1}
 vote_request={"term": 1, "sender_name": node_name, "request":"VOTE_REQUEST", "key":"", "value":"", "lastLogIndex": 0, "lastLogTerm": 0}
 global_state={"currentTerm": 1, "votedFor": None, "log": [], "timeout_interval": None, "heartbeat_interval": 1000}
 heartbeat_rpc={"sender_name": node_name, "request": "APPEND_RPC", "key": "", "value": "", "entries": [], "term": 1, "prevLogIndex": 0, "prevLogTerm": 0}
 state='follower'
 current_term = global_state['currentTerm']
-# other_nodes = [5556, 5557]
+#other_nodes = [5556, 5557]
 other_nodes = os.environ["NODES"].split(";")
 stop_threads = False
 custom_target = None
@@ -30,18 +30,17 @@ def timer_func(interval):
     ''' 
     '''
     #print("inside timer_func!!")
-    #start_time=time.time()
+    start_time=time.time()
     inter_sec=int(global_state[interval])
     inter=int(inter_sec/10)
     for i in range (inter):
-        # print("Waiting")
         if(stop_timer):
             break
             #print("inside if!!")
         time.sleep(1/1000)
-    #end_time=time.time()
+    end_time=time.time()
     #print("Done!")
-    #print(end_time-start_time)
+    print(end_time-start_time)
     
 def listener(skt):
     '''
@@ -78,19 +77,19 @@ def rpc_sender(skt):
     global stop_threads
     global custom_target
     while True:
-        if send_this_message_list:            
-            msg_bytes = json.dumps(send_this_message_list.pop(0)).encode('utf-8')
+        if common_message_store:            
+            msg_bytes = json.dumps(common_message_store.pop(0)).encode('utf-8')
             # Currently hardcoded
             if custom_target is None:
                 for target in other_nodes:
+                    #skt.sendto(msg_bytes, ('localhost', target))
                     try:
                         skt.sendto(msg_bytes, (target, 5555))
-                        # skt.sendto(msg_bytes, ('localhost', target))                        
                     except Exception as e:
                         continue
             else:
                 #print("Send msg", msg_bytes)                
-                # skt.sendto(msg_bytes, ('localhost', custom_target))
+                #skt.sendto(msg_bytes, ('localhost', custom_target))
                 skt.sendto(msg_bytes, (custom_target, 5555))
                 custom_target = None
 
@@ -232,7 +231,7 @@ def modify_name():
     VOTE['sender_name'] = node_name
 
     global_state['timeout_interval'] = int(os.environ['TIMEOUT_VALUE'])
-    # global_state['timeout_interval'] = 2400
+    #global_state['timeout_interval'] = 2400
 
     # with open('message.json', 'w') as outfile:
     #     json.dump(message_template, outfile)
@@ -269,7 +268,6 @@ def hold_election():
 def modify_term():
     '''
     '''
-    print("Modifing term")
     global current_term
     current_term = current_term + 1
     global_state['currentTerm'] = current_term
@@ -295,7 +293,7 @@ if __name__=="__main__":
     '''
     source = node_name
     modify_name()
-    # source = 'localhost'
+    #source = 'localhost'
     UDP_Skt = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
     UDP_Skt.bind((source, 5555))
 

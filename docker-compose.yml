@@ -6,14 +6,14 @@ services:
       environment:
         - NODES=Node2;Node3;Node4;Node5
         - NODE_NAME=Node1
-        - TIMEOUT_VALUE=2400
+        - TIMEOUT_VALUE=2500
     node2:
       container_name: Node2
       build: Node/.
       environment:
         - NODES=Node1;Node3;Node4;Node5
         - NODE_NAME=Node2
-        - TIMEOUT_VALUE=2700
+        - TIMEOUT_VALUE=3000
     node3:
       container_name: Node3
       build: Node/.
